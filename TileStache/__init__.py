@@ -16,19 +16,19 @@ import re
 
 from sys import stdout
 try:
-    from urlparse import parse_qs
+    from urllib.parse import parse_qs
 except ImportError:
     from cgi import parse_qs
-from StringIO import StringIO
+from io import StringIO
 from os.path import dirname, join as pathjoin, realpath
 from datetime import datetime, timedelta
-from urlparse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse
 from wsgiref.headers import Headers
-from urllib import urlopen
+from urllib.request import urlopen
 from os import getcwd
 from time import time
 
-import httplib
+import http.client
 import logging
 
 try:
@@ -43,8 +43,8 @@ from ModestMaps.Core import Coordinate
 # dictionary of configuration objects for requestLayer().
 _previous_configs = {}
 
-import Core
-import Config
+from . import Core
+from . import Config
 
 # regular expression for PATH_INFO
 _pathinfo_pat = re.compile(r'^/?(?P<l>\w.+)/(?P<z>\d+)/(?P<x>-?\d+)/(?P<y>-?\d+)\.(?P<e>\w+)$')
@@ -154,7 +154,7 @@ def requestLayer(config, path_info):
         Config parameter can be a file path string for a JSON configuration file
         or a configuration object with 'cache', 'layers', and 'dirpath' properties.
     """
-    if type(config) in (str, unicode):
+    if type(config) in (str, str):
         #
         # Should be a path to a configuration file we can load;
         # build a tuple key into previously-seen config objects.
@@ -271,13 +271,13 @@ def requestHandler2(config_hint, path_info, query_string=None, script_name=''):
             headers.setdefault('Expires', expires.strftime('%a, %d %b %Y %H:%M:%S GMT'))
             headers.setdefault('Cache-Control', 'public, max-age=%d' % layer.max_cache_age)
 
-    except Core.KnownUnknown, e:
+    except Core.KnownUnknown as e:
         out = StringIO()
 
-        print >> out, 'Known unknown!'
-        print >> out, e
-        print >> out, ''
-        print >> out, '\n'.join(Core._rummy())
+        print('Known unknown!', file=out)
+        print(e, file=out)
+        print('', file=out)
+        print('\n'.join(Core._rummy()), file=out)
 
         headers['Content-Type'] = 'text/plain'
         status_code, content = 500, out.getvalue()
@@ -311,7 +311,7 @@ def cgiHandler(environ, config='./tilestache.cfg', debug=False):
     stdout.write('Status: %d\n' % status_code)
 
     # output gathered headers
-    for k, v in headers.items():
+    for k, v in list(headers.items()):
         stdout.write('%s: %s\n' % (k, v))
 
     stdout.write('\n')
@@ -340,14 +340,14 @@ class WSGITileServer:
             on each request, applicable only when config is a JSON file.
         """
 
-        if type(config) in (str, unicode, dict):
+        if type(config) in (str, str, dict):
             self.autoreload = autoreload
             self.config_path = config
 
             try:
                 self.config = parseConfig(config)
             except:
-                print "Error loading Tilestache config:"
+                print("Error loading Tilestache config:")
                 raise
 
         else:
@@ -365,12 +365,12 @@ class WSGITileServer:
         if self.autoreload: # re-parse the config file on every request
             try:
                 self.config = parseConfig(self.config_path)
-            except Exception, e:
+            except Exception as e:
                 raise Core.KnownUnknown("Error loading Tilestache config file:\n%s" % str(e))
 
         try:
             layer, coord, ext = splitPathInfo(environ['PATH_INFO'])
-        except Core.KnownUnknown, e:
+        except Core.KnownUnknown as e:
             return self._response(start_response, 400, str(e))
 
         #
@@ -396,7 +396,7 @@ class WSGITileServer:
         if content:
             headers.setdefault('Content-Length', str(len(content)))
 
-        start_response('%d %s' % (code, httplib.responses[code]), headers.items())
+        start_response('%d %s' % (code, http.client.responses[code]), list(headers.items()))
         return [content]
 
 def modpythonHandler(request):

@@ -62,9 +62,9 @@ import sys
 import logging
 from sys import stderr, modules
 from os.path import realpath, join as pathjoin
-from urlparse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse
 from mimetypes import guess_type
-from urllib import urlopen
+from urllib.request import urlopen
 from json import dumps
 
 try:
@@ -75,11 +75,10 @@ except ImportError:
 from ModestMaps.Geo import Location
 from ModestMaps.Core import Coordinate
 
-import Core
-import Caches
-import Providers
-import Geography
-import PixelEffects
+from . import Core
+from . import Caches
+from . import Providers
+from . import PixelEffects
 
 class Configuration:
     """ A complete site configuration, with a collection of Layer objects.
@@ -214,7 +213,7 @@ def buildConfiguration(config_dict, dirpath='.'):
 
     config = Configuration(cache, dirpath)
 
-    for (name, layer_dict) in config_dict.get('layers', {}).items():
+    for (name, layer_dict) in list(config_dict.get('layers', {}).items()):
         config.layers[name] = _parseConfigLayer(layer_dict, config, dirpath)
 
     if 'index' in config_dict:
@@ -317,7 +316,7 @@ def _parseConfigCache(cache_dict, dirpath):
     elif 'class' in cache_dict:
         _class = loadClassPath(cache_dict['class'])
         kwargs = cache_dict.get('kwargs', {})
-        kwargs = dict( [(str(k), v) for (k, v) in kwargs.items()] )
+        kwargs = dict( [(str(k), v) for (k, v) in list(kwargs.items())] )
 
     else:
         raise Exception('Missing required cache name or class: %s' % json_dumps(cache_dict))
@@ -344,6 +343,8 @@ def _parseLayerBounds(bounds_dict, projection):
 def _parseConfigLayer(layer_dict, config, dirpath):
     """ Used by parseConfig() to parse just the layer parts of a config.
     """
+    from . import Geography
+
     projection = layer_dict.get('projection', 'spherical mercator')
     projection = Geography.getProjectionByName(projection)
 
@@ -417,10 +418,10 @@ def _parseConfigLayer(layer_dict, config, dirpath):
     png_kwargs = {}
 
     if 'jpeg options' in layer_dict:
-        jpeg_kwargs = dict([(str(k), v) for (k, v) in layer_dict['jpeg options'].items()])
+        jpeg_kwargs = dict([(str(k), v) for (k, v) in list(layer_dict['jpeg options'].items())])
 
     if 'png options' in layer_dict:
-        png_kwargs = dict([(str(k), v) for (k, v) in layer_dict['png options'].items()])
+        png_kwargs = dict([(str(k), v) for (k, v) in list(layer_dict['png options'].items())])
 
     #
     # Do pixel effect
@@ -433,7 +434,7 @@ def _parseConfigLayer(layer_dict, config, dirpath):
         pixel_effect_name = pixel_effect_dict.get('name')
         if pixel_effect_name in PixelEffects.all:
             pixel_effect_kwargs = {}
-            for k, v in pixel_effect_dict.items():
+            for k, v in list(pixel_effect_dict.items()):
                 if k != 'name':
                     pixel_effect_kwargs[str(k)] = float(v)
             PixelEffectClass = PixelEffects.all[pixel_effect_name]
@@ -451,7 +452,7 @@ def _parseConfigLayer(layer_dict, config, dirpath):
     elif 'class' in provider_dict:
         _class = loadClassPath(provider_dict['class'])
         provider_kwargs = provider_dict.get('kwargs', {})
-        provider_kwargs = dict( [(str(k), v) for (k, v) in provider_kwargs.items()] )
+        provider_kwargs = dict( [(str(k), v) for (k, v) in list(provider_kwargs.items())] )
 
     else:
         raise Exception('Missing required provider name or class: %s' % json_dumps(provider_dict))
@@ -489,7 +490,7 @@ def loadClassPath(classpath):
             if _class is None:
                 raise Exception('eval(%(objname)s) in %(modname)s came up None' % locals())
 
-        except Exception, e:
+        except Exception as e:
             raise Core.KnownUnknown('Tried to import %s, but: %s' % (classpath, e))
 
     else:
@@ -500,12 +501,12 @@ def loadClassPath(classpath):
 
         try:
             module = __import__('.'.join(classpath[:-1]), fromlist=str(classpath[-1]))
-        except ImportError, e:
+        except ImportError as e:
             raise Core.KnownUnknown('Tried to import %s, but: %s' % ('.'.join(classpath), e))
 
         try:
             _class = getattr(module, classpath[-1])
-        except AttributeError, e:
+        except AttributeError as e:
             raise Core.KnownUnknown('Tried to import %s, but: %s' % ('.'.join(classpath), e))
 
     return _class

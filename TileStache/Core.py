@@ -145,11 +145,11 @@ The preview can be accessed through a URL like /<layer name>/preview.html:
 
 import logging
 from wsgiref.headers import Headers
-from StringIO import StringIO
-from urlparse import urljoin
+from io import StringIO
+from urllib.parse import urljoin
 from time import time
 
-from Pixels import load_palette, apply_palette, apply_palette256
+from .Pixels import load_palette, apply_palette, apply_palette256
 
 try:
     from PIL import Image
@@ -350,7 +350,7 @@ class Layer:
             Layer names are stored in the Configuration object, so
             config.layers must be inspected to find a matching name.
         """
-        for (name, layer) in self.config.layers.items():
+        for (name, layer) in list(self.config.layers.items()):
             if layer is self:
                 return name
 
@@ -382,7 +382,7 @@ class Layer:
             # Start by checking for a tile in the cache.
             try:
                 body = cache.read(self, coord, format)
-            except TheTileLeftANote, e:
+            except TheTileLeftANote as e:
                 headers = e.headers
                 status_code = e.status_code
                 body = e.content
@@ -422,7 +422,7 @@ class Layer:
                     try:
                         tile = self.render(coord, format)
                         save = True
-                    except NoTileLeftBehind, e:
+                    except NoTileLeftBehind as e:
                         tile = e.tile
                         save = False
                         status_code = 404
@@ -445,7 +445,7 @@ class Layer:
 
                     tile_from = 'layer.render()'
 
-            except TheTileLeftANote, e:
+            except TheTileLeftANote as e:
                 headers = e.headers
                 status_code = e.status_code
                 body = e.content
